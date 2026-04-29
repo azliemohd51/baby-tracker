@@ -1,4 +1,4 @@
-<!-- Version: 1.0 -->
+<!-- Version: 1.1 -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -457,7 +457,7 @@
         </div>
         <div class="stat" style="grid-column: span 2; background: linear-gradient(135deg, #fde4e1, #fbe0c8);">
           <div class="label">Pumped today 🤱</div>
-          <div class="value" id="sPumpTotal">0 ml</div>
+          <div class="value" id="sPumpTotal">0 oz</div>
           <div class="meta" id="sPumpMeta">— sessions</div>
         </div>
       </div>
@@ -506,8 +506,8 @@
           </div>
         </div>
         <div class="field">
-          <label>Amount (ml)</label>
-          <input type="number" id="feedAmount" min="0" placeholder="e.g. 90" inputmode="numeric" />
+          <label>Amount (oz)</label>
+          <input type="number" id="feedAmount" min="0" placeholder="e.g. 3" inputmode="numeric" />
         </div>
       </div>
 
@@ -616,8 +616,8 @@
         </div>
       </div>
       <div class="field">
-        <label>Amount (ml)</label>
-        <input type="number" id="pumpAmount" min="0" placeholder="Total ml" inputmode="numeric" />
+        <label>Amount (oz)</label>
+        <input type="number" id="pumpAmount" min="0" placeholder="Total oz" inputmode="numeric" />
       </div>
       <div class="field">
         <label>Duration (minutes)</label>
@@ -639,12 +639,12 @@
       <div class="grid">
         <div class="stat">
           <div class="label">Today</div>
-          <div class="value" id="pumpToday">0 ml</div>
+          <div class="value" id="pumpToday">0 oz</div>
           <div class="meta" id="pumpTodayMeta">— sessions</div>
         </div>
         <div class="stat">
           <div class="label">7-day avg</div>
-          <div class="value" id="pump7d">0 ml</div>
+          <div class="value" id="pump7d">0 oz</div>
           <div class="meta">per day</div>
         </div>
       </div>
@@ -691,7 +691,7 @@
   <button class="tab" data-tab="history" onclick="showTab('history')"><span class="ic">📋</span>Log</button>
 </nav>
 
-<footer>Mother & Baby Tracker · v1.0</footer>
+<footer>Mother & Baby Tracker · v1.1</footer>
 
 <script>
 /* ---------- Storage ---------- */
@@ -856,7 +856,7 @@ function cancelSleep() { state.activeSleep = null; save(); render(); }
 function startPump() { state.activePump = { startTime: now(), side: getSeg('pumpSideSeg') || 'both' }; save(); render(); }
 function stopPump() {
   if (!state.activePump) return;
-  const amt = prompt('How much milk did you pump? (ml)');
+  const amt = prompt('How much milk did you pump? (oz)');
   if (amt === null) return;
   const ml = parseFloat(amt) || 0;
   const startTime = state.activePump.startTime;
@@ -869,7 +869,7 @@ function stopPump() {
     notes: ''
   });
   state.activePump = null;
-  save(); flash(`Pump saved: ${ml} ml ✓`); render();
+  save(); flash(`Pump saved: ${ml} oz ✓`); render();
 }
 function cancelPump() { state.activePump = null; save(); render(); }
 
@@ -893,7 +893,7 @@ function describeFeed(f) {
     const side = f.side === 'L' ? 'Left' : f.side === 'R' ? 'Right' : 'Both';
     return `Breastfed · ${side}${f.durationMin ? ` · ${f.durationMin}m` : ''}`;
   }
-  return `Bottle · ${f.kind === 'formula' ? 'Formula' : 'Expressed'}${f.amountMl ? ` · ${f.amountMl} ml` : ''}`;
+  return `Bottle · ${f.kind === 'formula' ? 'Formula' : 'Expressed'}${f.amountMl ? ` · ${f.amountMl} oz` : ''}`;
 }
 function describePoo(p) {
   return `Poo · ${p.consistency || ''}${p.color ? ' · ' + p.color : ''}`;
@@ -906,7 +906,7 @@ function describeSleep(s) {
 }
 function describePump(p) {
   const side = p.side === 'L' ? 'L' : p.side === 'R' ? 'R' : 'Both';
-  return `Pumped · ${p.amountMl} ml · ${side}${p.durationMin ? ` · ${p.durationMin}m` : ''}`;
+  return `Pumped · ${p.amountMl} oz · ${side}${p.durationMin ? ` · ${p.durationMin}m` : ''}`;
 }
 
 function logRow(item, kind) {
@@ -962,7 +962,7 @@ function renderToday() {
   const pumpB = document.getElementById('activePumpBanner');
   if (state.activePump) {
     const elapsed = Math.round((now() - state.activePump.startTime) / 60000);
-    pumpB.innerHTML = `<div class="live-card"><span class="pulse"></span><strong>Pumping</strong> · ${fmtDur(elapsed)}<div style="margin-top:10px"><button class="btn" onclick="stopPump()">Stop & save ml</button></div></div>`;
+    pumpB.innerHTML = `<div class="live-card"><span class="pulse"></span><strong>Pumping</strong> · ${fmtDur(elapsed)}<div style="margin-top:10px"><button class="btn" onclick="stopPump()">Stop & save oz</button></div></div>`;
   } else pumpB.innerHTML = '';
 
   // Quick stats
@@ -998,7 +998,7 @@ function renderToday() {
   document.getElementById('sPooMeta').textContent = tPoos[0] ? `last ${fmtTime(tPoos[0].timestamp)}` : 'no entries';
 
   const pumpTotal = tPumps.reduce((a, p) => a + (p.amountMl || 0), 0);
-  document.getElementById('sPumpTotal').textContent = `${Math.round(pumpTotal)} ml`;
+  document.getElementById('sPumpTotal').textContent = `${Math.round(pumpTotal)} oz`;
   document.getElementById('sPumpMeta').textContent = `${tPumps.length} session${tPumps.length !== 1 ? 's' : ''}`;
 
   // Recent activity (last 8 of any)
@@ -1061,7 +1061,7 @@ function renderPump() {
         <div class="since">${sideLbl} · started ${fmtTime(state.activePump.startTime)}</div>
       </div>
       <div class="btn-row">
-        <button class="btn" onclick="stopPump()">Stop & enter ml</button>
+        <button class="btn" onclick="stopPump()">Stop & enter oz</button>
         <button class="btn danger" onclick="cancelPump()">Cancel</button>
       </div>
     `;
@@ -1069,7 +1069,7 @@ function renderPump() {
     el.innerHTML = `
       <div class="timer-display">
         <div class="time" style="font-size:32px;color:var(--ink-soft)">Pump timer</div>
-        <div class="since">starts a session, asks ml when you stop</div>
+        <div class="since">starts a session, asks oz when you stop</div>
       </div>
       <div class="field" style="margin-top:14px">
         <label>Side</label>
@@ -1087,14 +1087,14 @@ function renderPump() {
   // Pump stats
   const tPumps = todayItems(state.pumps);
   const today = tPumps.reduce((a, p) => a + (p.amountMl || 0), 0);
-  document.getElementById('pumpToday').textContent = `${Math.round(today)} ml`;
+  document.getElementById('pumpToday').textContent = `${Math.round(today)} oz`;
   document.getElementById('pumpTodayMeta').textContent = `${tPumps.length} session${tPumps.length !== 1 ? 's' : ''}`;
 
   const sevenAgo = now() - 7 * 86400000;
   const last7 = state.pumps.filter(p => p.timestamp >= sevenAgo);
   const days = new Set(last7.map(p => startOfDay(p.timestamp))).size || 1;
   const avg = last7.reduce((a, p) => a + (p.amountMl || 0), 0) / days;
-  document.getElementById('pump7d').textContent = `${Math.round(avg)} ml`;
+  document.getElementById('pump7d').textContent = `${Math.round(avg)} oz`;
 
   renderList(document.getElementById('pumpList'), state.pumps.slice(0, 50), 'pump');
 }
