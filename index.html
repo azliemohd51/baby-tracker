@@ -1,0 +1,1181 @@
+<!-- Version: 1.0 -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+<meta name="theme-color" content="#fdf2f0" />
+<title>Mother & Baby Tracker</title>
+<style>
+  :root {
+    --bg: #fdf2f0;
+    --surface: #ffffff;
+    --surface-2: #fff8f6;
+    --ink: #3a2a2a;
+    --ink-soft: #7a6464;
+    --ink-faint: #b8a5a5;
+    --accent: #e89aa0;
+    --accent-2: #f4b5a3;
+    --accent-3: #c9b6e1;
+    --accent-4: #a8d5ba;
+    --line: #f0e0db;
+    --danger: #d97777;
+    --shadow: 0 1px 2px rgba(122, 100, 100, .06), 0 4px 16px rgba(122, 100, 100, .06);
+    --radius: 18px;
+    --radius-sm: 12px;
+  }
+
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    min-height: 100vh;
+    padding-bottom: 96px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  header {
+    padding: 22px 20px 14px;
+    text-align: center;
+  }
+  header h1 {
+    margin: 0;
+    font-size: 22px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+  header .sub {
+    margin-top: 4px;
+    font-size: 13px;
+    color: var(--ink-soft);
+  }
+
+  main {
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 0 16px;
+  }
+
+  /* Tabs */
+  .tabs {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    background: var(--surface);
+    border-top: 1px solid var(--line);
+    display: flex;
+    justify-content: space-around;
+    padding: 8px 4px calc(8px + env(safe-area-inset-bottom));
+    z-index: 50;
+  }
+  .tab {
+    flex: 1;
+    background: none;
+    border: 0;
+    padding: 8px 4px;
+    cursor: pointer;
+    color: var(--ink-faint);
+    font-size: 11px;
+    font-weight: 500;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    transition: color .15s;
+    font-family: inherit;
+  }
+  .tab .ic { font-size: 20px; line-height: 1; }
+  .tab.active { color: var(--accent); }
+
+  /* Cards */
+  .card {
+    background: var(--surface);
+    border-radius: var(--radius);
+    padding: 18px;
+    box-shadow: var(--shadow);
+    margin-bottom: 14px;
+  }
+
+  .card h2 {
+    margin: 0 0 14px;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--ink);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  /* Summary grid */
+  .grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .stat {
+    background: var(--surface-2);
+    border-radius: var(--radius-sm);
+    padding: 14px;
+  }
+  .stat .label {
+    font-size: 11px;
+    color: var(--ink-soft);
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    font-weight: 600;
+  }
+  .stat .value {
+    font-size: 22px;
+    font-weight: 600;
+    margin-top: 4px;
+    color: var(--ink);
+  }
+  .stat .meta {
+    font-size: 11px;
+    color: var(--ink-faint);
+    margin-top: 2px;
+  }
+
+  /* Buttons */
+  button {
+    font-family: inherit;
+  }
+  .btn {
+    border: 0;
+    border-radius: var(--radius-sm);
+    padding: 14px 16px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    background: var(--accent);
+    color: white;
+    width: 100%;
+    transition: transform .05s, opacity .15s;
+  }
+  .btn:active { transform: scale(.98); }
+  .btn.ghost {
+    background: var(--surface-2);
+    color: var(--ink);
+    border: 1px solid var(--line);
+  }
+  .btn.danger {
+    background: transparent;
+    color: var(--danger);
+    border: 1px solid var(--line);
+  }
+  .btn-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 10px;
+  }
+
+  /* Quick action big buttons */
+  .quick {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .quick button {
+    background: var(--surface);
+    border: 0;
+    border-radius: var(--radius);
+    padding: 18px 12px;
+    box-shadow: var(--shadow);
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    transition: transform .05s;
+  }
+  .quick button:active { transform: scale(.97); }
+  .quick .emoji { font-size: 28px; }
+  .quick .lbl { font-size: 13px; font-weight: 600; color: var(--ink); }
+  .quick .hint { font-size: 11px; color: var(--ink-soft); }
+
+  /* Form */
+  .field { margin-bottom: 12px; }
+  .field label {
+    display: block;
+    font-size: 12px;
+    color: var(--ink-soft);
+    margin-bottom: 6px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .03em;
+  }
+  .field input, .field select, .field textarea {
+    width: 100%;
+    padding: 12px 14px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    font-size: 15px;
+    font-family: inherit;
+    background: var(--surface-2);
+    color: var(--ink);
+    -webkit-appearance: none;
+    appearance: none;
+  }
+  .field input:focus, .field select:focus, .field textarea:focus {
+    outline: 2px solid var(--accent);
+    outline-offset: -1px;
+    background: white;
+  }
+  .field textarea { min-height: 60px; resize: vertical; }
+
+  /* Segmented */
+  .segmented {
+    display: flex;
+    gap: 6px;
+    background: var(--surface-2);
+    padding: 4px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--line);
+  }
+  .segmented button {
+    flex: 1;
+    border: 0;
+    background: transparent;
+    padding: 10px 8px;
+    border-radius: 9px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink-soft);
+    cursor: pointer;
+    transition: all .15s;
+  }
+  .segmented button.on {
+    background: white;
+    color: var(--ink);
+    box-shadow: 0 1px 3px rgba(0,0,0,.08);
+  }
+
+  /* Timer */
+  .timer-display {
+    text-align: center;
+    padding: 18px 0;
+    font-variant-numeric: tabular-nums;
+  }
+  .timer-display .time {
+    font-size: 44px;
+    font-weight: 300;
+    letter-spacing: -.02em;
+  }
+  .timer-display .since {
+    font-size: 12px;
+    color: var(--ink-soft);
+    margin-top: 4px;
+  }
+
+  /* History list */
+  .log-list { display: flex; flex-direction: column; gap: 8px; }
+  .log-item {
+    background: var(--surface-2);
+    border-radius: var(--radius-sm);
+    padding: 12px 14px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .log-item .icon {
+    width: 38px; height: 38px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+  .log-item .ic-feed { background: #fde4e1; }
+  .log-item .ic-poo { background: #efe1d1; }
+  .log-item .ic-sleep { background: #e0d6ef; }
+  .log-item .ic-diaper { background: #d6ebe0; }
+  .log-item .ic-pump { background: #fbe0c8; }
+  .log-item .body { flex: 1; min-width: 0; }
+  .log-item .title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--ink);
+  }
+  .log-item .meta {
+    font-size: 12px;
+    color: var(--ink-soft);
+    margin-top: 2px;
+  }
+  .log-item .del {
+    background: none;
+    border: 0;
+    color: var(--ink-faint);
+    cursor: pointer;
+    padding: 6px;
+    font-size: 16px;
+  }
+  .log-item .del:hover { color: var(--danger); }
+
+  .empty {
+    text-align: center;
+    padding: 32px 16px;
+    color: var(--ink-faint);
+    font-size: 13px;
+  }
+
+  /* Hidden views */
+  .view { display: none; }
+  .view.active { display: block; animation: fadeIn .2s ease; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+  /* Live timer card */
+  .live-card {
+    background: linear-gradient(135deg, #fff 0%, #fff8f6 100%);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 18px;
+    margin-bottom: 14px;
+    text-align: center;
+  }
+  .live-card .pulse {
+    display: inline-block;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--accent);
+    margin-right: 6px;
+    animation: pulse 1.5s infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: .3; }
+  }
+
+  /* Filter chips */
+  .chips {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    padding-bottom: 6px;
+    margin-bottom: 12px;
+    scrollbar-width: none;
+  }
+  .chips::-webkit-scrollbar { display: none; }
+  .chip {
+    border: 1px solid var(--line);
+    background: var(--surface);
+    padding: 6px 12px;
+    border-radius: 999px;
+    font-size: 12px;
+    color: var(--ink-soft);
+    white-space: nowrap;
+    cursor: pointer;
+    font-weight: 600;
+  }
+  .chip.on {
+    background: var(--ink);
+    color: white;
+    border-color: var(--ink);
+  }
+
+  footer {
+    text-align: center;
+    padding: 16px;
+    font-size: 11px;
+    color: var(--ink-faint);
+  }
+
+  /* Date divider */
+  .date-divider {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    color: var(--ink-faint);
+    font-weight: 600;
+    padding: 12px 4px 4px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Mother & Baby</h1>
+  <div class="sub" id="todayDate"></div>
+</header>
+
+<main>
+
+  <!-- ============== TODAY ============== -->
+  <section id="view-today" class="view active">
+
+    <!-- Active sleep banner -->
+    <div id="activeSleepBanner"></div>
+    <!-- Active pump banner -->
+    <div id="activePumpBanner"></div>
+
+    <div class="quick">
+      <button onclick="showTab('feed')">
+        <span class="emoji">🍼</span>
+        <span class="lbl">Feed</span>
+        <span class="hint" id="quickFeed">—</span>
+      </button>
+      <button onclick="showTab('sleep')">
+        <span class="emoji">😴</span>
+        <span class="lbl">Sleep</span>
+        <span class="hint" id="quickSleep">—</span>
+      </button>
+      <button onclick="showTab('diaper')">
+        <span class="emoji">👶</span>
+        <span class="lbl">Diaper</span>
+        <span class="hint" id="quickDiaper">—</span>
+      </button>
+      <button onclick="showTab('pump')">
+        <span class="emoji">🤱</span>
+        <span class="lbl">Pump</span>
+        <span class="hint" id="quickPump">—</span>
+      </button>
+    </div>
+
+    <div class="card">
+      <h2>Today's summary</h2>
+      <div class="grid">
+        <div class="stat">
+          <div class="label">Feeds</div>
+          <div class="value" id="sFeedCount">0</div>
+          <div class="meta" id="sFeedMeta">last —</div>
+        </div>
+        <div class="stat">
+          <div class="label">Sleep</div>
+          <div class="value" id="sSleepTotal">0h 0m</div>
+          <div class="meta" id="sSleepMeta">— sessions</div>
+        </div>
+        <div class="stat">
+          <div class="label">Diapers</div>
+          <div class="value" id="sDiaperCount">0</div>
+          <div class="meta" id="sDiaperMeta">— wet · — dirty</div>
+        </div>
+        <div class="stat">
+          <div class="label">Poo</div>
+          <div class="value" id="sPooCount">0</div>
+          <div class="meta" id="sPooMeta">last —</div>
+        </div>
+        <div class="stat" style="grid-column: span 2; background: linear-gradient(135deg, #fde4e1, #fbe0c8);">
+          <div class="label">Pumped today 🤱</div>
+          <div class="value" id="sPumpTotal">0 ml</div>
+          <div class="meta" id="sPumpMeta">— sessions</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Recent activity</h2>
+      <div id="recentList" class="log-list"></div>
+    </div>
+  </section>
+
+  <!-- ============== FEED ============== -->
+  <section id="view-feed" class="view">
+    <div class="card">
+      <h2>🍼 Log feed</h2>
+
+      <div class="field">
+        <label>Type</label>
+        <div class="segmented" id="feedTypeSeg">
+          <button data-val="breast" class="on">Breast</button>
+          <button data-val="bottle">Bottle</button>
+        </div>
+      </div>
+
+      <div id="feedBreastFields">
+        <div class="field">
+          <label>Side</label>
+          <div class="segmented" id="feedSideSeg">
+            <button data-val="L" class="on">Left</button>
+            <button data-val="R">Right</button>
+            <button data-val="both">Both</button>
+          </div>
+        </div>
+        <div class="field">
+          <label>Duration (minutes)</label>
+          <input type="number" id="feedDuration" min="0" placeholder="e.g. 15" inputmode="numeric" />
+        </div>
+      </div>
+
+      <div id="feedBottleFields" style="display:none">
+        <div class="field">
+          <label>Milk type</label>
+          <div class="segmented" id="feedKindSeg">
+            <button data-val="ebm" class="on">Expressed</button>
+            <button data-val="formula">Formula</button>
+          </div>
+        </div>
+        <div class="field">
+          <label>Amount (ml)</label>
+          <input type="number" id="feedAmount" min="0" placeholder="e.g. 90" inputmode="numeric" />
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Notes (optional)</label>
+        <input type="text" id="feedNotes" placeholder="Anything to remember" />
+      </div>
+
+      <button class="btn" onclick="saveFeed()">Save feed</button>
+    </div>
+
+    <div class="card">
+      <h2>Feeds today</h2>
+      <div id="feedList" class="log-list"></div>
+    </div>
+  </section>
+
+  <!-- ============== SLEEP ============== -->
+  <section id="view-sleep" class="view">
+    <div class="card" id="sleepTimerCard">
+      <h2>😴 Sleep</h2>
+      <div id="sleepTimerInner"></div>
+    </div>
+
+    <div class="card">
+      <h2>Or log past sleep</h2>
+      <div class="field">
+        <label>Start</label>
+        <input type="datetime-local" id="sleepStart" />
+      </div>
+      <div class="field">
+        <label>End</label>
+        <input type="datetime-local" id="sleepEnd" />
+      </div>
+      <div class="field">
+        <label>Notes (optional)</label>
+        <input type="text" id="sleepNotes" placeholder="Nap, night, etc." />
+      </div>
+      <button class="btn ghost" onclick="saveManualSleep()">Save sleep</button>
+    </div>
+
+    <div class="card">
+      <h2>Sleep today</h2>
+      <div id="sleepList" class="log-list"></div>
+    </div>
+  </section>
+
+  <!-- ============== DIAPER ============== -->
+  <section id="view-diaper" class="view">
+    <div class="card">
+      <h2>👶 Diaper change</h2>
+      <div class="btn-row" style="margin-bottom:12px">
+        <button class="btn ghost" onclick="quickDiaper('wet')">💧 Wet</button>
+        <button class="btn ghost" onclick="quickDiaper('dirty')">💩 Dirty</button>
+        <button class="btn ghost" onclick="quickDiaper('both')">💧💩 Both</button>
+      </div>
+      <div class="field">
+        <label>Notes (optional)</label>
+        <input type="text" id="diaperNotes" placeholder="Color, consistency..." />
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>💩 Poo log</h2>
+      <div class="field">
+        <label>Consistency</label>
+        <div class="segmented" id="pooConsSeg">
+          <button data-val="soft" class="on">Soft</button>
+          <button data-val="normal">Normal</button>
+          <button data-val="hard">Hard</button>
+          <button data-val="watery">Watery</button>
+        </div>
+      </div>
+      <div class="field">
+        <label>Color</label>
+        <input type="text" id="pooColor" placeholder="e.g. yellow, green, brown" />
+      </div>
+      <div class="field">
+        <label>Notes (optional)</label>
+        <input type="text" id="pooNotes" placeholder="" />
+      </div>
+      <button class="btn" onclick="savePoo()">Save poo entry</button>
+    </div>
+
+    <div class="card">
+      <h2>Diaper & poo today</h2>
+      <div id="diaperList" class="log-list"></div>
+    </div>
+  </section>
+
+  <!-- ============== PUMP ============== -->
+  <section id="view-pump" class="view">
+    <div class="card" id="pumpTimerCard">
+      <h2>🤱 Pump session</h2>
+      <div id="pumpTimerInner"></div>
+    </div>
+
+    <div class="card">
+      <h2>Or log past pump</h2>
+      <div class="field">
+        <label>Side</label>
+        <div class="segmented" id="pumpSideSeg">
+          <button data-val="L" class="on">Left</button>
+          <button data-val="R">Right</button>
+          <button data-val="both">Both</button>
+        </div>
+      </div>
+      <div class="field">
+        <label>Amount (ml)</label>
+        <input type="number" id="pumpAmount" min="0" placeholder="Total ml" inputmode="numeric" />
+      </div>
+      <div class="field">
+        <label>Duration (minutes)</label>
+        <input type="number" id="pumpDuration" min="0" placeholder="e.g. 20" inputmode="numeric" />
+      </div>
+      <div class="field">
+        <label>When</label>
+        <input type="datetime-local" id="pumpWhen" />
+      </div>
+      <div class="field">
+        <label>Notes (optional)</label>
+        <input type="text" id="pumpNotes" placeholder="" />
+      </div>
+      <button class="btn ghost" onclick="saveManualPump()">Save pump</button>
+    </div>
+
+    <div class="card">
+      <h2>Pump stats</h2>
+      <div class="grid">
+        <div class="stat">
+          <div class="label">Today</div>
+          <div class="value" id="pumpToday">0 ml</div>
+          <div class="meta" id="pumpTodayMeta">— sessions</div>
+        </div>
+        <div class="stat">
+          <div class="label">7-day avg</div>
+          <div class="value" id="pump7d">0 ml</div>
+          <div class="meta">per day</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Pump history</h2>
+      <div id="pumpList" class="log-list"></div>
+    </div>
+  </section>
+
+  <!-- ============== HISTORY ============== -->
+  <section id="view-history" class="view">
+    <div class="card">
+      <h2>All activity</h2>
+      <div class="chips" id="historyFilter">
+        <div class="chip on" data-f="all">All</div>
+        <div class="chip" data-f="feed">Feeds</div>
+        <div class="chip" data-f="sleep">Sleep</div>
+        <div class="chip" data-f="diaper">Diapers</div>
+        <div class="chip" data-f="poo">Poo</div>
+        <div class="chip" data-f="pump">Pump</div>
+      </div>
+      <div id="historyList" class="log-list"></div>
+    </div>
+
+    <div class="card">
+      <h2>Data</h2>
+      <div class="btn-row">
+        <button class="btn ghost" onclick="exportData()">Export JSON</button>
+        <button class="btn danger" onclick="resetData()">Reset all</button>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<nav class="tabs">
+  <button class="tab active" data-tab="today" onclick="showTab('today')"><span class="ic">🏠</span>Today</button>
+  <button class="tab" data-tab="feed" onclick="showTab('feed')"><span class="ic">🍼</span>Feed</button>
+  <button class="tab" data-tab="sleep" onclick="showTab('sleep')"><span class="ic">😴</span>Sleep</button>
+  <button class="tab" data-tab="diaper" onclick="showTab('diaper')"><span class="ic">👶</span>Diaper</button>
+  <button class="tab" data-tab="pump" onclick="showTab('pump')"><span class="ic">🤱</span>Pump</button>
+  <button class="tab" data-tab="history" onclick="showTab('history')"><span class="ic">📋</span>Log</button>
+</nav>
+
+<footer>Mother & Baby Tracker · v1.0</footer>
+
+<script>
+/* ---------- Storage ---------- */
+const KEY = 'mb-tracker-v1';
+const empty = { feeds: [], poos: [], sleeps: [], diapers: [], pumps: [], activeSleep: null, activePump: null };
+function load() {
+  try { return Object.assign({}, empty, JSON.parse(localStorage.getItem(KEY) || '{}')); }
+  catch { return { ...empty }; }
+}
+function save() { localStorage.setItem(KEY, JSON.stringify(state)); }
+let state = load();
+
+/* ---------- Helpers ---------- */
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+const now = () => Date.now();
+const startOfDay = (t = now()) => { const d = new Date(t); d.setHours(0,0,0,0); return d.getTime(); };
+const fmtTime = t => new Date(t).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+const fmtDate = t => new Date(t).toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
+const fmtDur = mins => {
+  if (!mins && mins !== 0) return '—';
+  const h = Math.floor(mins / 60);
+  const m = Math.round(mins % 60);
+  return h ? `${h}h ${m}m` : `${m}m`;
+};
+const since = t => {
+  const m = Math.round((now() - t) / 60000);
+  if (m < 1) return 'just now';
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ${m % 60}m ago`;
+  return `${Math.floor(h / 24)}d ago`;
+};
+const todayItems = arr => arr.filter(x => (x.timestamp || x.startTime) >= startOfDay());
+
+/* ---------- Tabs ---------- */
+function showTab(tab) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById('view-' + tab).classList.add('active');
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+  window.scrollTo(0, 0);
+  render();
+}
+
+/* ---------- Segmented controls ---------- */
+function bindSeg(id, onChange) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.addEventListener('click', e => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    el.querySelectorAll('button').forEach(x => x.classList.remove('on'));
+    b.classList.add('on');
+    onChange && onChange(b.dataset.val);
+  });
+}
+const getSeg = id => document.querySelector(`#${id} button.on`)?.dataset.val;
+
+bindSeg('feedTypeSeg', v => {
+  document.getElementById('feedBreastFields').style.display = v === 'breast' ? '' : 'none';
+  document.getElementById('feedBottleFields').style.display = v === 'bottle' ? '' : 'none';
+});
+bindSeg('feedSideSeg');
+bindSeg('feedKindSeg');
+bindSeg('pooConsSeg');
+bindSeg('pumpSideSeg');
+
+/* ---------- Save handlers ---------- */
+function saveFeed() {
+  const type = getSeg('feedTypeSeg');
+  const notes = document.getElementById('feedNotes').value.trim();
+  const item = { id: uid(), timestamp: now(), type, notes };
+  if (type === 'breast') {
+    item.side = getSeg('feedSideSeg');
+    const dur = parseFloat(document.getElementById('feedDuration').value);
+    if (!isNaN(dur)) item.durationMin = dur;
+  } else {
+    item.kind = getSeg('feedKindSeg');
+    const amt = parseFloat(document.getElementById('feedAmount').value);
+    if (!isNaN(amt)) item.amountMl = amt;
+  }
+  state.feeds.unshift(item);
+  save(); flash('Feed logged ✓');
+  document.getElementById('feedDuration').value = '';
+  document.getElementById('feedAmount').value = '';
+  document.getElementById('feedNotes').value = '';
+  render();
+}
+
+function quickDiaper(type) {
+  const notes = document.getElementById('diaperNotes').value.trim();
+  state.diapers.unshift({ id: uid(), timestamp: now(), type, notes });
+  document.getElementById('diaperNotes').value = '';
+  save(); flash('Diaper logged ✓'); render();
+}
+
+function savePoo() {
+  state.poos.unshift({
+    id: uid(),
+    timestamp: now(),
+    consistency: getSeg('pooConsSeg'),
+    color: document.getElementById('pooColor').value.trim(),
+    notes: document.getElementById('pooNotes').value.trim()
+  });
+  document.getElementById('pooColor').value = '';
+  document.getElementById('pooNotes').value = '';
+  save(); flash('Poo logged ✓'); render();
+}
+
+function saveManualSleep() {
+  const s = document.getElementById('sleepStart').value;
+  const e = document.getElementById('sleepEnd').value;
+  if (!s || !e) return alert('Please pick start and end');
+  const startTime = new Date(s).getTime();
+  const endTime = new Date(e).getTime();
+  if (endTime <= startTime) return alert('End must be after start');
+  state.sleeps.unshift({
+    id: uid(), startTime, endTime,
+    durationMin: (endTime - startTime) / 60000,
+    notes: document.getElementById('sleepNotes').value.trim()
+  });
+  document.getElementById('sleepStart').value = '';
+  document.getElementById('sleepEnd').value = '';
+  document.getElementById('sleepNotes').value = '';
+  save(); flash('Sleep logged ✓'); render();
+}
+
+function saveManualPump() {
+  const amt = parseFloat(document.getElementById('pumpAmount').value);
+  const dur = parseFloat(document.getElementById('pumpDuration').value);
+  const when = document.getElementById('pumpWhen').value;
+  state.pumps.unshift({
+    id: uid(),
+    timestamp: when ? new Date(when).getTime() : now(),
+    side: getSeg('pumpSideSeg'),
+    amountMl: isNaN(amt) ? 0 : amt,
+    durationMin: isNaN(dur) ? null : dur,
+    notes: document.getElementById('pumpNotes').value.trim()
+  });
+  document.getElementById('pumpAmount').value = '';
+  document.getElementById('pumpDuration').value = '';
+  document.getElementById('pumpWhen').value = '';
+  document.getElementById('pumpNotes').value = '';
+  save(); flash('Pump logged ✓'); render();
+}
+
+/* ---------- Active timers ---------- */
+function startSleep() { state.activeSleep = { startTime: now() }; save(); render(); }
+function stopSleep() {
+  if (!state.activeSleep) return;
+  const startTime = state.activeSleep.startTime;
+  const endTime = now();
+  state.sleeps.unshift({
+    id: uid(), startTime, endTime,
+    durationMin: (endTime - startTime) / 60000,
+    notes: ''
+  });
+  state.activeSleep = null;
+  save(); flash('Sleep logged ✓'); render();
+}
+function cancelSleep() { state.activeSleep = null; save(); render(); }
+
+function startPump() { state.activePump = { startTime: now(), side: getSeg('pumpSideSeg') || 'both' }; save(); render(); }
+function stopPump() {
+  if (!state.activePump) return;
+  const amt = prompt('How much milk did you pump? (ml)');
+  if (amt === null) return;
+  const ml = parseFloat(amt) || 0;
+  const startTime = state.activePump.startTime;
+  state.pumps.unshift({
+    id: uid(),
+    timestamp: now(),
+    side: state.activePump.side,
+    amountMl: ml,
+    durationMin: Math.round((now() - startTime) / 60000),
+    notes: ''
+  });
+  state.activePump = null;
+  save(); flash(`Pump saved: ${ml} ml ✓`); render();
+}
+function cancelPump() { state.activePump = null; save(); render(); }
+
+/* ---------- Delete ---------- */
+function del(arr, id) {
+  state[arr] = state[arr].filter(x => x.id !== id);
+  save(); render();
+}
+
+/* ---------- Render helpers ---------- */
+function flash(msg) {
+  const t = document.createElement('div');
+  t.textContent = msg;
+  t.style.cssText = `position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:#3a2a2a;color:white;padding:10px 18px;border-radius:24px;font-size:13px;font-weight:600;z-index:100;animation:fadeIn .2s`;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 1600);
+}
+
+function describeFeed(f) {
+  if (f.type === 'breast') {
+    const side = f.side === 'L' ? 'Left' : f.side === 'R' ? 'Right' : 'Both';
+    return `Breastfed · ${side}${f.durationMin ? ` · ${f.durationMin}m` : ''}`;
+  }
+  return `Bottle · ${f.kind === 'formula' ? 'Formula' : 'Expressed'}${f.amountMl ? ` · ${f.amountMl} ml` : ''}`;
+}
+function describePoo(p) {
+  return `Poo · ${p.consistency || ''}${p.color ? ' · ' + p.color : ''}`;
+}
+function describeDiaper(d) {
+  return d.type === 'wet' ? 'Wet diaper 💧' : d.type === 'dirty' ? 'Dirty diaper 💩' : 'Wet + dirty 💧💩';
+}
+function describeSleep(s) {
+  return `Slept · ${fmtDur(s.durationMin)}`;
+}
+function describePump(p) {
+  const side = p.side === 'L' ? 'L' : p.side === 'R' ? 'R' : 'Both';
+  return `Pumped · ${p.amountMl} ml · ${side}${p.durationMin ? ` · ${p.durationMin}m` : ''}`;
+}
+
+function logRow(item, kind) {
+  const div = document.createElement('div');
+  div.className = 'log-item';
+  let icClass, icEmoji, title, t;
+  if (kind === 'feed') { icClass='ic-feed'; icEmoji='🍼'; title=describeFeed(item); t=item.timestamp; }
+  else if (kind === 'poo') { icClass='ic-poo'; icEmoji='💩'; title=describePoo(item); t=item.timestamp; }
+  else if (kind === 'diaper') { icClass='ic-diaper'; icEmoji='👶'; title=describeDiaper(item); t=item.timestamp; }
+  else if (kind === 'sleep') { icClass='ic-sleep'; icEmoji='😴'; title=describeSleep(item); t=item.startTime; }
+  else if (kind === 'pump') { icClass='ic-pump'; icEmoji='🤱'; title=describePump(item); t=item.timestamp; }
+
+  const arrName = kind === 'feed' ? 'feeds' : kind === 'poo' ? 'poos' : kind === 'diaper' ? 'diapers' : kind === 'sleep' ? 'sleeps' : 'pumps';
+  const meta = kind === 'sleep'
+    ? `${fmtTime(item.startTime)} – ${fmtTime(item.endTime)}`
+    : `${fmtTime(t)} · ${since(t)}`;
+
+  div.innerHTML = `
+    <div class="icon ${icClass}">${icEmoji}</div>
+    <div class="body">
+      <div class="title">${title}</div>
+      <div class="meta">${meta}${item.notes ? ' · ' + escapeHtml(item.notes) : ''}</div>
+    </div>
+    <button class="del" title="Delete" data-arr="${arrName}" data-id="${item.id}">×</button>
+  `;
+  div.querySelector('.del').onclick = () => del(arrName, item.id);
+  return div;
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+}
+
+function renderList(container, items, kind) {
+  container.innerHTML = '';
+  if (!items.length) { container.innerHTML = '<div class="empty">No entries yet</div>'; return; }
+  items.forEach(it => container.appendChild(logRow(it, kind)));
+}
+
+/* ---------- Render ---------- */
+function renderHeader() {
+  document.getElementById('todayDate').textContent = fmtDate(now());
+}
+
+function renderToday() {
+  // Active banners
+  const sleepB = document.getElementById('activeSleepBanner');
+  if (state.activeSleep) {
+    const elapsed = Math.round((now() - state.activeSleep.startTime) / 60000);
+    sleepB.innerHTML = `<div class="live-card"><span class="pulse"></span><strong>Sleeping</strong> · ${fmtDur(elapsed)}<div style="margin-top:10px"><button class="btn" onclick="stopSleep()">Stop & save</button></div></div>`;
+  } else sleepB.innerHTML = '';
+
+  const pumpB = document.getElementById('activePumpBanner');
+  if (state.activePump) {
+    const elapsed = Math.round((now() - state.activePump.startTime) / 60000);
+    pumpB.innerHTML = `<div class="live-card"><span class="pulse"></span><strong>Pumping</strong> · ${fmtDur(elapsed)}<div style="margin-top:10px"><button class="btn" onclick="stopPump()">Stop & save ml</button></div></div>`;
+  } else pumpB.innerHTML = '';
+
+  // Quick stats
+  const tFeeds = todayItems(state.feeds);
+  const tSleeps = todayItems(state.sleeps);
+  const tDiapers = todayItems(state.diapers);
+  const tPoos = todayItems(state.poos);
+  const tPumps = todayItems(state.pumps);
+
+  const lastFeed = state.feeds[0];
+  document.getElementById('quickFeed').textContent = lastFeed ? `last ${since(lastFeed.timestamp)}` : 'no entries';
+  const lastSleep = state.sleeps[0];
+  document.getElementById('quickSleep').textContent = state.activeSleep ? 'sleeping…' : (lastSleep ? `last ${since(lastSleep.endTime)}` : 'no entries');
+  const lastDiaper = state.diapers[0];
+  document.getElementById('quickDiaper').textContent = lastDiaper ? `last ${since(lastDiaper.timestamp)}` : 'no entries';
+  const lastPump = state.pumps[0];
+  document.getElementById('quickPump').textContent = state.activePump ? 'pumping…' : (lastPump ? `last ${since(lastPump.timestamp)}` : 'no entries');
+
+  document.getElementById('sFeedCount').textContent = tFeeds.length;
+  document.getElementById('sFeedMeta').textContent = lastFeed ? `last ${fmtTime(lastFeed.timestamp)}` : 'no feeds yet';
+
+  const sleepMin = tSleeps.reduce((a, s) => a + (s.durationMin || 0), 0);
+  document.getElementById('sSleepTotal').textContent = fmtDur(sleepMin);
+  document.getElementById('sSleepMeta').textContent = `${tSleeps.length} session${tSleeps.length !== 1 ? 's' : ''}`;
+
+  const wet = tDiapers.filter(d => d.type === 'wet').length;
+  const dirty = tDiapers.filter(d => d.type === 'dirty').length;
+  const both = tDiapers.filter(d => d.type === 'both').length;
+  document.getElementById('sDiaperCount').textContent = tDiapers.length;
+  document.getElementById('sDiaperMeta').textContent = `${wet + both} wet · ${dirty + both} dirty`;
+
+  document.getElementById('sPooCount').textContent = tPoos.length;
+  document.getElementById('sPooMeta').textContent = tPoos[0] ? `last ${fmtTime(tPoos[0].timestamp)}` : 'no entries';
+
+  const pumpTotal = tPumps.reduce((a, p) => a + (p.amountMl || 0), 0);
+  document.getElementById('sPumpTotal').textContent = `${Math.round(pumpTotal)} ml`;
+  document.getElementById('sPumpMeta').textContent = `${tPumps.length} session${tPumps.length !== 1 ? 's' : ''}`;
+
+  // Recent activity (last 8 of any)
+  const all = mergeAll().slice(0, 8);
+  const r = document.getElementById('recentList');
+  r.innerHTML = '';
+  if (!all.length) r.innerHTML = '<div class="empty">Tap a quick action above to start tracking</div>';
+  else all.forEach(({ item, kind }) => r.appendChild(logRow(item, kind)));
+}
+
+function renderFeed() {
+  renderList(document.getElementById('feedList'), todayItems(state.feeds), 'feed');
+}
+
+function renderSleep() {
+  const el = document.getElementById('sleepTimerInner');
+  if (state.activeSleep) {
+    const elapsed = Math.round((now() - state.activeSleep.startTime) / 60000);
+    el.innerHTML = `
+      <div class="timer-display">
+        <div class="time">${fmtDur(elapsed)}</div>
+        <div class="since">started ${fmtTime(state.activeSleep.startTime)}</div>
+      </div>
+      <div class="btn-row">
+        <button class="btn" onclick="stopSleep()">Stop & save</button>
+        <button class="btn danger" onclick="cancelSleep()">Cancel</button>
+      </div>
+    `;
+  } else {
+    el.innerHTML = `
+      <div class="timer-display">
+        <div class="time" style="font-size:32px;color:var(--ink-soft)">Tap to start</div>
+        <div class="since">timer for nap or night sleep</div>
+      </div>
+      <button class="btn" onclick="startSleep()">▶ Start sleep timer</button>
+    `;
+  }
+  renderList(document.getElementById('sleepList'), todayItems(state.sleeps), 'sleep');
+}
+
+function renderDiaper() {
+  const items = [
+    ...todayItems(state.diapers).map(item => ({ item, kind: 'diaper', t: item.timestamp })),
+    ...todayItems(state.poos).map(item => ({ item, kind: 'poo', t: item.timestamp })),
+  ].sort((a, b) => b.t - a.t);
+  const c = document.getElementById('diaperList');
+  c.innerHTML = '';
+  if (!items.length) c.innerHTML = '<div class="empty">No entries today</div>';
+  else items.forEach(({ item, kind }) => c.appendChild(logRow(item, kind)));
+}
+
+function renderPump() {
+  const el = document.getElementById('pumpTimerInner');
+  if (state.activePump) {
+    const elapsed = Math.round((now() - state.activePump.startTime) / 60000);
+    const sideLbl = state.activePump.side === 'L' ? 'Left' : state.activePump.side === 'R' ? 'Right' : 'Both';
+    el.innerHTML = `
+      <div class="timer-display">
+        <div class="time">${fmtDur(elapsed)}</div>
+        <div class="since">${sideLbl} · started ${fmtTime(state.activePump.startTime)}</div>
+      </div>
+      <div class="btn-row">
+        <button class="btn" onclick="stopPump()">Stop & enter ml</button>
+        <button class="btn danger" onclick="cancelPump()">Cancel</button>
+      </div>
+    `;
+  } else {
+    el.innerHTML = `
+      <div class="timer-display">
+        <div class="time" style="font-size:32px;color:var(--ink-soft)">Pump timer</div>
+        <div class="since">starts a session, asks ml when you stop</div>
+      </div>
+      <div class="field" style="margin-top:14px">
+        <label>Side</label>
+        <div class="segmented" id="pumpStartSideSeg">
+          <button data-val="L">Left</button>
+          <button data-val="R">Right</button>
+          <button data-val="both" class="on">Both</button>
+        </div>
+      </div>
+      <button class="btn" onclick="startPump()">▶ Start pump session</button>
+    `;
+    bindSeg('pumpStartSideSeg');
+  }
+
+  // Pump stats
+  const tPumps = todayItems(state.pumps);
+  const today = tPumps.reduce((a, p) => a + (p.amountMl || 0), 0);
+  document.getElementById('pumpToday').textContent = `${Math.round(today)} ml`;
+  document.getElementById('pumpTodayMeta').textContent = `${tPumps.length} session${tPumps.length !== 1 ? 's' : ''}`;
+
+  const sevenAgo = now() - 7 * 86400000;
+  const last7 = state.pumps.filter(p => p.timestamp >= sevenAgo);
+  const days = new Set(last7.map(p => startOfDay(p.timestamp))).size || 1;
+  const avg = last7.reduce((a, p) => a + (p.amountMl || 0), 0) / days;
+  document.getElementById('pump7d').textContent = `${Math.round(avg)} ml`;
+
+  renderList(document.getElementById('pumpList'), state.pumps.slice(0, 50), 'pump');
+}
+
+function mergeAll() {
+  const all = [
+    ...state.feeds.map(item => ({ item, kind: 'feed', t: item.timestamp })),
+    ...state.poos.map(item => ({ item, kind: 'poo', t: item.timestamp })),
+    ...state.diapers.map(item => ({ item, kind: 'diaper', t: item.timestamp })),
+    ...state.sleeps.map(item => ({ item, kind: 'sleep', t: item.startTime })),
+    ...state.pumps.map(item => ({ item, kind: 'pump', t: item.timestamp })),
+  ];
+  return all.sort((a, b) => b.t - a.t);
+}
+
+let historyFilter = 'all';
+function renderHistory() {
+  const c = document.getElementById('historyList');
+  c.innerHTML = '';
+  let items = mergeAll();
+  if (historyFilter !== 'all') items = items.filter(x => x.kind === historyFilter);
+  if (!items.length) { c.innerHTML = '<div class="empty">No entries</div>'; return; }
+
+  let lastDay = null;
+  items.forEach(({ item, kind, t }) => {
+    const d = startOfDay(t);
+    if (d !== lastDay) {
+      const div = document.createElement('div');
+      div.className = 'date-divider';
+      div.textContent = d === startOfDay() ? 'Today' : d === startOfDay() - 86400000 ? 'Yesterday' : fmtDate(t);
+      c.appendChild(div);
+      lastDay = d;
+    }
+    c.appendChild(logRow(item, kind));
+  });
+}
+document.getElementById('historyFilter').addEventListener('click', e => {
+  const chip = e.target.closest('.chip');
+  if (!chip) return;
+  document.querySelectorAll('#historyFilter .chip').forEach(x => x.classList.remove('on'));
+  chip.classList.add('on');
+  historyFilter = chip.dataset.f;
+  renderHistory();
+});
+
+function exportData() {
+  const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `mb-tracker-${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function resetData() {
+  if (!confirm('Delete ALL tracking data? This cannot be undone.')) return;
+  state = { ...empty };
+  save(); render();
+}
+
+function render() {
+  renderHeader();
+  renderToday();
+  renderFeed();
+  renderSleep();
+  renderDiaper();
+  renderPump();
+  renderHistory();
+}
+
+// Live tick for active timers
+setInterval(() => {
+  if (state.activeSleep || state.activePump) {
+    renderToday();
+    renderSleep();
+    renderPump();
+  }
+}, 30000);
+
+render();
+</script>
+</body>
+</html>
