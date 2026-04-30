@@ -1,4 +1,4 @@
-<!-- Version: 1.1 -->
+<!-- Version: 1.2 -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -381,6 +381,28 @@
     color: var(--ink-faint);
   }
 
+  /* Sync indicator */
+  .sync-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 4px;
+    font-size: 11px;
+    color: var(--ink-faint);
+    cursor: pointer;
+    background: none;
+    border: 0;
+    font-family: inherit;
+    padding: 4px 10px;
+    border-radius: 999px;
+    transition: background .15s, color .15s;
+  }
+  .sync-status:hover { background: var(--surface-2); }
+  .sync-status.syncing { color: var(--accent); }
+  .sync-status.syncing .arrow { animation: spin 1s linear infinite; }
+  .sync-status.offline { color: var(--danger); }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
   /* Date divider */
   .date-divider {
     font-size: 11px;
@@ -397,6 +419,7 @@
 <header>
   <h1>Mother & Baby</h1>
   <div class="sub" id="todayDate"></div>
+  <button class="sync-status" id="syncBtn" onclick="fetchCloud()" title="Sync with cloud"><span class="arrow">↻</span> <span id="syncText">checking…</span></button>
 </header>
 
 <main>
@@ -691,15 +714,32 @@
   <button class="tab" data-tab="history" onclick="showTab('history')"><span class="ic">📋</span>Log</button>
 </nav>
 
-<footer>Mother & Baby Tracker · v1.1</footer>
+<footer>Mother & Baby Tracker · v1.2</footer>
 
 <script>
+/* ---------- Cloud sync config ----------
+   Paste the 5 published-CSV URLs from your Google Sheet here once Pabbly is wired up.
+   Until then, the app stays in localStorage-only mode and shows "not configured". */
+const CLOUD = {
+  feeds:   "<paste-feeds-csv-url>",
+  sleeps:  "<paste-sleeps-csv-url>",
+  diapers: "<paste-diapers-csv-url>",
+  poos:    "<paste-poos-csv-url>",
+  pumps:   "<paste-pumps-csv-url>"
+};
+
 /* ---------- Storage ---------- */
 const KEY = 'mb-tracker-v1';
-const empty = { feeds: [], poos: [], sleeps: [], diapers: [], pumps: [], activeSleep: null, activePump: null };
+const empty = { feeds: [], poos: [], sleeps: [], diapers: [], pumps: [], activeSleep: null, activePump: null, lastSync: null };
 function load() {
-  try { return Object.assign({}, empty, JSON.parse(localStorage.getItem(KEY) || '{}')); }
-  catch { return { ...empty }; }
+  let raw = {};
+  try { raw = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch { raw = {}; }
+  const s = Object.assign({}, empty, raw);
+  // Backfill source / user_id on legacy entries (Phase-3 migration anchor)
+  ['feeds','sleeps','diapers','poos','pumps'].forEach(k => {
+    s[k] = (s[k] || []).map(x => Object.assign({ source: 'web', user_id: 'self' }, x));
+  });
+  return s;
 }
 function save() { localStorage.setItem(KEY, JSON.stringify(state)); }
 let state = load();
@@ -762,7 +802,7 @@ bindSeg('pumpSideSeg');
 function saveFeed() {
   const type = getSeg('feedTypeSeg');
   const notes = document.getElementById('feedNotes').value.trim();
-  const item = { id: uid(), timestamp: now(), type, notes };
+  const item = { id: uid(), timestamp: now(), type, notes, source: 'web', user_id: 'self' };
   if (type === 'breast') {
     item.side = getSeg('feedSideSeg');
     const dur = parseFloat(document.getElementById('feedDuration').value);
@@ -782,7 +822,7 @@ function saveFeed() {
 
 function quickDiaper(type) {
   const notes = document.getElementById('diaperNotes').value.trim();
-  state.diapers.unshift({ id: uid(), timestamp: now(), type, notes });
+  state.diapers.unshift({ id: uid(), timestamp: now(), type, notes, source: 'web', user_id: 'self' });
   document.getElementById('diaperNotes').value = '';
   save(); flash('Diaper logged ✓'); render();
 }
@@ -793,7 +833,8 @@ function savePoo() {
     timestamp: now(),
     consistency: getSeg('pooConsSeg'),
     color: document.getElementById('pooColor').value.trim(),
-    notes: document.getElementById('pooNotes').value.trim()
+    notes: document.getElementById('pooNotes').value.trim(),
+    source: 'web', user_id: 'self'
   });
   document.getElementById('pooColor').value = '';
   document.getElementById('pooNotes').value = '';
@@ -810,7 +851,8 @@ function saveManualSleep() {
   state.sleeps.unshift({
     id: uid(), startTime, endTime,
     durationMin: (endTime - startTime) / 60000,
-    notes: document.getElementById('sleepNotes').value.trim()
+    notes: document.getElementById('sleepNotes').value.trim(),
+    source: 'web', user_id: 'self'
   });
   document.getElementById('sleepStart').value = '';
   document.getElementById('sleepEnd').value = '';
@@ -828,7 +870,8 @@ function saveManualPump() {
     side: getSeg('pumpSideSeg'),
     amountMl: isNaN(amt) ? 0 : amt,
     durationMin: isNaN(dur) ? null : dur,
-    notes: document.getElementById('pumpNotes').value.trim()
+    notes: document.getElementById('pumpNotes').value.trim(),
+    source: 'web', user_id: 'self'
   });
   document.getElementById('pumpAmount').value = '';
   document.getElementById('pumpDuration').value = '';
@@ -846,7 +889,8 @@ function stopSleep() {
   state.sleeps.unshift({
     id: uid(), startTime, endTime,
     durationMin: (endTime - startTime) / 60000,
-    notes: ''
+    notes: '',
+    source: 'web', user_id: 'self'
   });
   state.activeSleep = null;
   save(); flash('Sleep logged ✓'); render();
@@ -866,7 +910,8 @@ function stopPump() {
     side: state.activePump.side,
     amountMl: ml,
     durationMin: Math.round((now() - startTime) / 60000),
-    notes: ''
+    notes: '',
+    source: 'web', user_id: 'self'
   });
   state.activePump = null;
   save(); flash(`Pump saved: ${ml} oz ✓`); render();
@@ -1156,6 +1201,152 @@ function resetData() {
   save(); render();
 }
 
+/* ---------- Cloud sync ---------- */
+function parseCSV(text) {
+  const rows = [];
+  let row = [], field = '', inQuotes = false, i = 0;
+  while (i < text.length) {
+    const c = text[i];
+    if (inQuotes) {
+      if (c === '"' && text[i+1] === '"') { field += '"'; i += 2; continue; }
+      if (c === '"') { inQuotes = false; i++; continue; }
+      field += c; i++;
+    } else {
+      if (c === '"') { inQuotes = true; i++; continue; }
+      if (c === ',') { row.push(field); field = ''; i++; continue; }
+      if (c === '\r') { i++; continue; }
+      if (c === '\n') { row.push(field); rows.push(row); row = []; field = ''; i++; continue; }
+      field += c; i++;
+    }
+  }
+  if (field !== '' || row.length) { row.push(field); rows.push(row); }
+  if (!rows.length) return [];
+  const headers = rows[0].map(h => h.trim());
+  return rows.slice(1)
+    .filter(r => r.some(v => v !== ''))
+    .map(r => Object.fromEntries(headers.map((h, idx) => [h, (r[idx] ?? '').trim()])));
+}
+
+const toMs = v => {
+  if (!v) return null;
+  if (/^\d+$/.test(v)) return +v;
+  const t = new Date(v).getTime();
+  return isNaN(t) ? null : t;
+};
+const num = v => { const n = parseFloat(v); return isNaN(n) ? undefined : n; };
+
+function rowToFeed(r) {
+  const ts = toMs(r.created_at) || toMs(r.id) || now();
+  return {
+    id: r.id || String(ts),
+    timestamp: ts,
+    type: r.subtype || 'bottle',
+    side: r.side || undefined,
+    durationMin: num(r.duration_min),
+    kind: r.milk_kind || undefined,
+    amountMl: num(r.amount_oz),
+    notes: r.notes || '',
+    source: r.source || 'telegram',
+    user_id: r.user_id || ''
+  };
+}
+function rowToSleep(r) {
+  const start = toMs(r.start_at) || toMs(r.created_at) || toMs(r.id) || now();
+  const dur = num(r.duration_min) || 0;
+  const end = toMs(r.end_at) || (start + dur * 60000);
+  return {
+    id: r.id || String(start),
+    startTime: start,
+    endTime: end,
+    durationMin: dur || (end - start) / 60000,
+    notes: r.notes || '',
+    source: r.source || 'telegram',
+    user_id: r.user_id || ''
+  };
+}
+function rowToDiaper(r) {
+  const ts = toMs(r.created_at) || toMs(r.id) || now();
+  return {
+    id: r.id || String(ts),
+    timestamp: ts,
+    type: r.subtype || 'wet',
+    notes: r.notes || '',
+    source: r.source || 'telegram',
+    user_id: r.user_id || ''
+  };
+}
+function rowToPoo(r) {
+  const ts = toMs(r.created_at) || toMs(r.id) || now();
+  return {
+    id: r.id || String(ts),
+    timestamp: ts,
+    consistency: r.consistency || '',
+    color: r.color || '',
+    notes: r.notes || '',
+    source: r.source || 'telegram',
+    user_id: r.user_id || ''
+  };
+}
+function rowToPump(r) {
+  const ts = toMs(r.created_at) || toMs(r.id) || now();
+  return {
+    id: r.id || String(ts),
+    timestamp: ts,
+    side: r.side || 'both',
+    amountMl: num(r.amount_oz) || 0,
+    durationMin: num(r.duration_min) ?? null,
+    notes: r.notes || '',
+    source: r.source || 'telegram',
+    user_id: r.user_id || ''
+  };
+}
+
+function setSyncStatus(text, cls = '') {
+  const btn = document.getElementById('syncBtn');
+  const txt = document.getElementById('syncText');
+  if (!btn || !txt) return;
+  txt.textContent = text;
+  btn.classList.remove('syncing', 'offline');
+  if (cls) btn.classList.add(cls);
+}
+
+function syncedAgoText() {
+  if (!state.lastSync) return 'never synced';
+  const m = Math.round((now() - state.lastSync) / 60000);
+  if (m < 1) return 'synced just now';
+  if (m < 60) return `synced ${m}m ago`;
+  return `synced ${Math.floor(m / 60)}h ago`;
+}
+
+const isConfiguredUrl = u => u && !u.startsWith('<') && /^https?:\/\//.test(u);
+
+async function fetchCloud() {
+  const entries = Object.entries(CLOUD).filter(([_, u]) => isConfiguredUrl(u));
+  if (!entries.length) { setSyncStatus('cloud not configured'); return; }
+  setSyncStatus('syncing…', 'syncing');
+  try {
+    const mappers = { feeds: rowToFeed, sleeps: rowToSleep, diapers: rowToDiaper, poos: rowToPoo, pumps: rowToPump };
+    const results = await Promise.all(entries.map(async ([key, url]) => {
+      const r = await fetch(url, { cache: 'no-store' });
+      if (!r.ok) throw new Error(`${key} ${r.status}`);
+      return [key, parseCSV(await r.text()).map(mappers[key])];
+    }));
+    results.forEach(([key, incoming]) => {
+      const byId = new Map(state[key].map(x => [x.id, x]));
+      incoming.forEach(x => byId.set(x.id, x)); // cloud wins
+      state[key] = Array.from(byId.values()).sort((a, b) =>
+        (b.timestamp || b.startTime || 0) - (a.timestamp || a.startTime || 0));
+    });
+    state.lastSync = now();
+    save();
+    setSyncStatus(syncedAgoText());
+    render();
+  } catch (e) {
+    console.warn('Cloud sync failed:', e);
+    setSyncStatus(`offline · ${e.message}`, 'offline');
+  }
+}
+
 function render() {
   renderHeader();
   renderToday();
@@ -1164,6 +1355,11 @@ function render() {
   renderDiaper();
   renderPump();
   renderHistory();
+  // Refresh the sync chip's "X minutes ago" text without re-fetching
+  const btn = document.getElementById('syncBtn');
+  if (btn && !btn.classList.contains('syncing') && !btn.classList.contains('offline')) {
+    setSyncStatus(isConfiguredUrl(CLOUD.feeds) ? syncedAgoText() : 'cloud not configured');
+  }
 }
 
 // Live tick for active timers
@@ -1176,6 +1372,8 @@ setInterval(() => {
 }, 30000);
 
 render();
+// Auto-sync on load (no-op if URLs aren't configured yet)
+fetchCloud();
 </script>
 </body>
 </html>
