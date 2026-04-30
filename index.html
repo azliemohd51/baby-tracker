@@ -1,4 +1,4 @@
-<!-- Version: 1.2 -->
+<!-- Version: 1.3 -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -714,18 +714,18 @@
   <button class="tab" data-tab="history" onclick="showTab('history')"><span class="ic">📋</span>Log</button>
 </nav>
 
-<footer>Mother & Baby Tracker · v1.2</footer>
+<footer>Mother & Baby Tracker · v1.3</footer>
 
 <script>
 /* ---------- Cloud sync config ----------
    Paste the 5 published-CSV URLs from your Google Sheet here once Pabbly is wired up.
    Until then, the app stays in localStorage-only mode and shows "not configured". */
 const CLOUD = {
-  feeds:   "<paste-feeds-csv-url>",
-  sleeps:  "<paste-sleeps-csv-url>",
-  diapers: "<paste-diapers-csv-url>",
-  poos:    "<paste-poos-csv-url>",
-  pumps:   "<paste-pumps-csv-url>"
+  feeds:   "https://docs.google.com/spreadsheets/d/e/2PACX-1vT0vc4Fc6brvGucG4sI3AbNUlCZOl4oFwdBGRPlI7Z5p6J3N-q0D5FLWxLbkdKywAmbLTRiJVp4N-Q4/pub?gid=0&single=true&output=csv",
+  sleeps:  "https://docs.google.com/spreadsheets/d/e/2PACX-1vT0vc4Fc6brvGucG4sI3AbNUlCZOl4oFwdBGRPlI7Z5p6J3N-q0D5FLWxLbkdKywAmbLTRiJVp4N-Q4/pub?gid=1345045693&single=true&output=csv",
+  diapers: "https://docs.google.com/spreadsheets/d/e/2PACX-1vT0vc4Fc6brvGucG4sI3AbNUlCZOl4oFwdBGRPlI7Z5p6J3N-q0D5FLWxLbkdKywAmbLTRiJVp4N-Q4/pub?gid=1656285957&single=true&output=csv",
+  poos:    "https://docs.google.com/spreadsheets/d/e/2PACX-1vT0vc4Fc6brvGucG4sI3AbNUlCZOl4oFwdBGRPlI7Z5p6J3N-q0D5FLWxLbkdKywAmbLTRiJVp4N-Q4/pub?gid=1189124481&single=true&output=csv",
+  pumps:   "https://docs.google.com/spreadsheets/d/e/2PACX-1vT0vc4Fc6brvGucG4sI3AbNUlCZOl4oFwdBGRPlI7Z5p6J3N-q0D5FLWxLbkdKywAmbLTRiJVp4N-Q4/pub?gid=1036106752&single=true&output=csv"
 };
 
 /* ---------- Storage ---------- */
