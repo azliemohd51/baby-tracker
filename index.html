@@ -1,4 +1,4 @@
-<!-- Version: 1.4 -->
+<!-- Version: 1.5 -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -419,7 +419,7 @@
 <header>
   <h1>Mother & Baby</h1>
   <div class="sub" id="todayDate"></div>
-  <button class="sync-status" id="syncBtn" onclick="fetchCloud()" title="Sync with cloud"><span class="arrow">↻</span> <span id="syncText">checking…</span></button>
+  <button class="sync-status" id="syncBtn" onclick="fetchCloud()" oncontextmenu="event.preventDefault(); configureWalrus(); return false;" title="Sync with cloud (long-press to set Walrus URL)"><span class="arrow">↻</span> <span id="syncText">checking…</span></button>
 </header>
 
 <main>
@@ -714,23 +714,29 @@
   <button class="tab" data-tab="history" onclick="showTab('history')"><span class="ic">📋</span>Log</button>
 </nav>
 
-<footer>Mother & Baby Tracker · v1.4 (Walrus backend)</footer>
+<footer>Mother & Baby Tracker · v1.5 (Walrus backend)</footer>
 
 <script>
-/* ---------- Cloud sync config (v1.4 — Walrus backend) ----------
-   baby-tracker now pulls from the Walrus bot's CSV API instead of Google Sheets.
-   Replace WALRUS_BASE with your Railway-generated public URL and WALRUS_TOKEN
-   with the API_TOKEN you set in Walrus's Variables. Token can be empty if you
-   chose not to set one in Walrus (not recommended). */
-const WALRUS_BASE  = "https://walrus-production.up.railway.app"; // ← edit me: your Walrus URL
-const WALRUS_TOKEN = "";                                         // ← edit me: matches API_TOKEN in Walrus
-const _wq = WALRUS_TOKEN ? `?token=${encodeURIComponent(WALRUS_TOKEN)}` : '';
+/* ---------- Cloud sync config (v1.5 — Walrus backend) ----------
+   baby-tracker pulls from the Walrus bot's CSV API. To keep credentials out
+   of the public HTML, the URL and token are stored in localStorage on each
+   device — entered once via the Sync button (long-press) or via these keys
+   in DevTools:
+       localStorage.setItem('walrus_base',  'https://walrus-production-xxxx.up.railway.app')
+       localStorage.setItem('walrus_token', 'your-API_TOKEN-value')                       */
+function walrusBase()  { return (localStorage.getItem('walrus_base')  || '').replace(/\/+$/, ''); }
+function walrusToken() { return localStorage.getItem('walrus_token') || ''; }
+function walrusUrl(kind) {
+  const base = walrusBase(); if (!base) return '';
+  const t = walrusToken();
+  return `${base}/csv/${kind}${t ? `?token=${encodeURIComponent(t)}` : ''}`;
+}
 const CLOUD = {
-  feeds:   `${WALRUS_BASE}/csv/feeds${_wq}`,
-  sleeps:  `${WALRUS_BASE}/csv/sleeps${_wq}`,
-  diapers: `${WALRUS_BASE}/csv/diapers${_wq}`,
-  poos:    `${WALRUS_BASE}/csv/poos${_wq}`,
-  pumps:   `${WALRUS_BASE}/csv/pumps${_wq}`
+  get feeds()   { return walrusUrl('feeds'); },
+  get sleeps()  { return walrusUrl('sleeps'); },
+  get diapers() { return walrusUrl('diapers'); },
+  get poos()    { return walrusUrl('poos'); },
+  get pumps()   { return walrusUrl('pumps'); },
 };
 
 /* ---------- Storage ---------- */
@@ -1324,6 +1330,14 @@ function syncedAgoText() {
 }
 
 const isConfiguredUrl = u => u && !u.startsWith('<') && /^https?:\/\//.test(u);
+
+function configureWalrus() {
+  const base = prompt('Walrus URL (from Railway, e.g. https://walrus-production-xxxx.up.railway.app):', walrusBase());
+  if (base !== null) localStorage.setItem('walrus_base', base.trim());
+  const token = prompt('Walrus API token (matches API_TOKEN in Railway). Leave empty if not set:', walrusToken());
+  if (token !== null) localStorage.setItem('walrus_token', token.trim());
+  setSyncStatus('config saved — tap Sync');
+}
 
 async function fetchCloud() {
   const entries = Object.entries(CLOUD).filter(([_, u]) => isConfiguredUrl(u));
