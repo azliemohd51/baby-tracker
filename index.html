@@ -1,4 +1,4 @@
-<!-- Version: 1.5 -->
+<!-- Version: 1.6 -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -714,7 +714,7 @@
   <button class="tab" data-tab="history" onclick="showTab('history')"><span class="ic">📋</span>Log</button>
 </nav>
 
-<footer>Mother & Baby Tracker · v1.5 (Walrus backend)</footer>
+<footer>Mother & Baby Tracker · v1.6 (Walrus integrated, two-way sync)</footer>
 
 <script>
 /* ---------- Cloud sync config (v1.5 — Walrus backend) ----------
@@ -777,6 +777,171 @@ const since = t => {
 };
 const todayItems = arr => arr.filter(x => (x.timestamp || x.startTime) >= startOfDay());
 
+/* ---------- Two-way Walrus integration (v1.6) ----------
+   Local state is a cache; Walrus is the source of truth. Every save
+   pushes optimistically to Walrus and falls back to a pending queue
+   on network error. Polling pulls full state every 10s (visible only). */
+
+const PENDING_KEY = 'mb-pending-v1';
+function loadPending() { try { return JSON.parse(localStorage.getItem(PENDING_KEY) || '[]'); } catch { return []; } }
+function savePending(arr) { localStorage.setItem(PENDING_KEY, JSON.stringify(arr)); }
+
+function apiUrl(kind) {
+  const base = walrusBase(); if (!base) return '';
+  const t = walrusToken();
+  return `${base}/api/${kind}${t ? `?token=${encodeURIComponent(t)}` : ''}`;
+}
+function apiUrlExtra(path) {
+  const base = walrusBase(); if (!base) return '';
+  const t = walrusToken();
+  return `${base}${path}${t ? `?token=${encodeURIComponent(t)}` : ''}`;
+}
+
+// Map a local item shape → Walrus POST body for that kind.
+function toApiBody(kind, item) {
+  if (kind === 'feeds') return {
+    subtype: item.type, side: item.side,
+    duration_min: item.durationMin,
+    milk_kind: item.kind,
+    amount_ml: item.amountMl,
+    notes: item.notes,
+  };
+  if (kind === 'diapers') return { subtype: item.type, notes: item.notes };
+  if (kind === 'poos')    return { consistency: item.consistency, color: item.color, notes: item.notes };
+  if (kind === 'pumps')   return { volume_ml: item.amountMl, side: item.side, duration_min: item.durationMin, notes: item.notes };
+  if (kind === 'sleeps')  return { start_at: new Date(item.startTime).toISOString(), end_at: new Date(item.endTime).toISOString(), notes: item.notes };
+  return item;
+}
+
+async function postToWalrus(kind, item) {
+  const url = apiUrl(kind);
+  if (!url) throw new Error('walrus not configured');
+  const body = toApiBody(kind, item);
+  const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  if (!r.ok) throw new Error(`POST ${kind} ${r.status}`);
+  return r.json();
+}
+
+async function postSleepCommand(action) {
+  // action: 'start' | 'end'
+  const url = apiUrlExtra(`/api/sleeps/${action}`);
+  if (!url) throw new Error('walrus not configured');
+  const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+  if (!r.ok) throw new Error(`sleep ${action} ${r.status}`);
+  return r.json();
+}
+
+async function pushAndCache(kind, item) {
+  state[kind].unshift(item);
+  save();
+  try {
+    await postToWalrus(kind, item);
+  } catch (e) {
+    console.warn('[walrus] queue', kind, e.message);
+    const pending = loadPending();
+    pending.push({ kind, item });
+    savePending(pending);
+  }
+}
+
+async function flushPending() {
+  const pending = loadPending();
+  if (!pending.length) return;
+  const remaining = [];
+  for (const p of pending) {
+    try { await postToWalrus(p.kind, p.item); }
+    catch { remaining.push(p); }
+  }
+  savePending(remaining);
+}
+
+// Pull every kind from Walrus and replace local state. Fields are
+// remapped to local shape via the existing rowTo* mappers (defined later).
+async function pullFromWalrus() {
+  const base = walrusBase();
+  if (!base) { setSyncStatus('cloud not configured'); return; }
+  setSyncStatus('syncing…', 'syncing');
+  try {
+    const kinds = ['feeds', 'sleeps', 'diapers', 'poos', 'pumps'];
+    const mappers = { feeds: rowToFeed, sleeps: rowToSleep, diapers: rowToDiaper, poos: rowToPoo, pumps: rowToPump };
+    const results = await Promise.all(kinds.map(async (kind) => {
+      const url = apiUrl(kind) + '&days=30';
+      const r = await fetch(url, { cache: 'no-store' });
+      if (!r.ok) throw new Error(`${kind} ${r.status}`);
+      const rows = await r.json();
+      return [kind, rows.map(rowFromApi(kind)).map(mappers[kind])];
+    }));
+    results.forEach(([key, incoming]) => {
+      state[key] = incoming.sort((a, b) => (b.timestamp || b.startTime || 0) - (a.timestamp || a.startTime || 0));
+    });
+    state.lastSync = now();
+    save();
+    setSyncStatus(syncedAgoText());
+    render();
+    flushPending();
+  } catch (e) {
+    console.error('[walrus] pull', e);
+    setSyncStatus('offline', 'offline');
+  }
+}
+
+// JSON row → CSV-like row that the existing rowTo* mappers expect.
+// (We reuse the mappers so we don't duplicate field-naming logic.)
+function rowFromApi(kind) {
+  return (r) => {
+    const out = { ...r };
+    // Postgres returns ISO strings; mappers handle that via toMs().
+    if (r.logged_at) out.created_at = r.logged_at;
+    if (r.start_at)  out.created_at = r.start_at;
+    if (kind === 'feeds')   { out.subtype = r.subtype; out.duration_min = r.duration_min; out.milk_kind = r.milk_kind; out.amount_oz = r.amount_ml; }
+    if (kind === 'diapers') { out.subtype = r.subtype; }
+    if (kind === 'pumps')   { out.amount_oz = r.volume_ml; out.duration_min = r.duration_min; }
+    if (kind === 'sleeps')  { out.start_at = r.start_at; out.end_at = r.end_at; out.duration_min = r.duration_min; }
+    return out;
+  };
+}
+
+let _syncTimer = null;
+function startSyncLoop() {
+  if (_syncTimer) clearInterval(_syncTimer);
+  pullFromWalrus();
+  _syncTimer = setInterval(() => {
+    if (document.visibilityState === 'visible') pullFromWalrus();
+  }, 10000);
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') pullFromWalrus();
+});
+
+/* ---------- PIN gate ---------- */
+async function sha256(text) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+async function ensurePinGate() {
+  const stored = localStorage.getItem('pin_hash');
+  if (!stored) {
+    let pin = null;
+    while (!pin || !/^\d{4,6}$/.test(pin)) pin = prompt('Set a 4–6 digit PIN to lock this dashboard:');
+    localStorage.setItem('pin_hash', await sha256(pin));
+    return true;
+  }
+  for (let tries = 0; tries < 3; tries++) {
+    const pin = prompt('PIN:');
+    if (pin === null) return false;
+    if ((await sha256(pin)) === stored) return true;
+  }
+  alert('Three wrong attempts. Clearing local data — you will need to reconfigure.');
+  localStorage.clear();
+  location.reload();
+  return false;
+}
+function resetPin() {
+  if (!confirm('Forget PIN and start over? Local data stays.')) return;
+  localStorage.removeItem('pin_hash');
+  location.reload();
+}
+
 /* ---------- Tabs ---------- */
 function showTab(tab) {
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
@@ -823,8 +988,8 @@ function saveFeed() {
     const amt = parseFloat(document.getElementById('feedAmount').value);
     if (!isNaN(amt)) item.amountMl = amt;
   }
-  state.feeds.unshift(item);
-  save(); flash('Feed logged ✓');
+  pushAndCache('feeds', item);
+  flash('Feed logged ✓');
   document.getElementById('feedDuration').value = '';
   document.getElementById('feedAmount').value = '';
   document.getElementById('feedNotes').value = '';
@@ -833,13 +998,13 @@ function saveFeed() {
 
 function quickDiaper(type) {
   const notes = document.getElementById('diaperNotes').value.trim();
-  state.diapers.unshift({ id: uid(), timestamp: now(), type, notes, source: 'web', user_id: 'self' });
+  pushAndCache('diapers', { id: uid(), timestamp: now(), type, notes, source: 'web', user_id: 'self' });
   document.getElementById('diaperNotes').value = '';
-  save(); flash('Diaper logged ✓'); render();
+  flash('Diaper logged ✓'); render();
 }
 
 function savePoo() {
-  state.poos.unshift({
+  pushAndCache('poos', {
     id: uid(),
     timestamp: now(),
     consistency: getSeg('pooConsSeg'),
@@ -849,7 +1014,7 @@ function savePoo() {
   });
   document.getElementById('pooColor').value = '';
   document.getElementById('pooNotes').value = '';
-  save(); flash('Poo logged ✓'); render();
+  flash('Poo logged ✓'); render();
 }
 
 function saveManualSleep() {
@@ -859,7 +1024,7 @@ function saveManualSleep() {
   const startTime = new Date(s).getTime();
   const endTime = new Date(e).getTime();
   if (endTime <= startTime) return alert('End must be after start');
-  state.sleeps.unshift({
+  pushAndCache('sleeps', {
     id: uid(), startTime, endTime,
     durationMin: (endTime - startTime) / 60000,
     notes: document.getElementById('sleepNotes').value.trim(),
@@ -868,14 +1033,14 @@ function saveManualSleep() {
   document.getElementById('sleepStart').value = '';
   document.getElementById('sleepEnd').value = '';
   document.getElementById('sleepNotes').value = '';
-  save(); flash('Sleep logged ✓'); render();
+  flash('Sleep logged ✓'); render();
 }
 
 function saveManualPump() {
   const amt = parseFloat(document.getElementById('pumpAmount').value);
   const dur = parseFloat(document.getElementById('pumpDuration').value);
   const when = document.getElementById('pumpWhen').value;
-  state.pumps.unshift({
+  pushAndCache('pumps', {
     id: uid(),
     timestamp: when ? new Date(when).getTime() : now(),
     side: getSeg('pumpSideSeg'),
@@ -888,23 +1053,26 @@ function saveManualPump() {
   document.getElementById('pumpDuration').value = '';
   document.getElementById('pumpWhen').value = '';
   document.getElementById('pumpNotes').value = '';
-  save(); flash('Pump logged ✓'); render();
+  flash('Pump logged ✓'); render();
 }
 
 /* ---------- Active timers ---------- */
-function startSleep() { state.activeSleep = { startTime: now() }; save(); render(); }
+function startSleep() {
+  state.activeSleep = { startTime: now() }; save(); render();
+  postSleepCommand('start').catch(() => {/* will reconcile on next pull */});
+}
 function stopSleep() {
   if (!state.activeSleep) return;
   const startTime = state.activeSleep.startTime;
   const endTime = now();
-  state.sleeps.unshift({
+  pushAndCache('sleeps', {
     id: uid(), startTime, endTime,
     durationMin: (endTime - startTime) / 60000,
     notes: '',
     source: 'web', user_id: 'self'
   });
   state.activeSleep = null;
-  save(); flash('Sleep logged ✓'); render();
+  flash('Sleep logged ✓'); render();
 }
 function cancelSleep() { state.activeSleep = null; save(); render(); }
 
@@ -915,7 +1083,7 @@ function stopPump() {
   if (amt === null) return;
   const ml = parseFloat(amt) || 0;
   const startTime = state.activePump.startTime;
-  state.pumps.unshift({
+  pushAndCache('pumps', {
     id: uid(),
     timestamp: now(),
     side: state.activePump.side,
@@ -925,7 +1093,7 @@ function stopPump() {
     source: 'web', user_id: 'self'
   });
   state.activePump = null;
-  save(); flash(`Pump saved: ${ml} oz ✓`); render();
+  flash(`Pump saved: ${ml} oz ✓`); render();
 }
 function cancelPump() { state.activePump = null; save(); render(); }
 
@@ -1339,32 +1507,9 @@ function configureWalrus() {
   setSyncStatus('config saved — tap Sync');
 }
 
-async function fetchCloud() {
-  const entries = Object.entries(CLOUD).filter(([_, u]) => isConfiguredUrl(u));
-  if (!entries.length) { setSyncStatus('cloud not configured'); return; }
-  setSyncStatus('syncing…', 'syncing');
-  try {
-    const mappers = { feeds: rowToFeed, sleeps: rowToSleep, diapers: rowToDiaper, poos: rowToPoo, pumps: rowToPump };
-    const results = await Promise.all(entries.map(async ([key, url]) => {
-      const r = await fetch(url, { cache: 'no-store' });
-      if (!r.ok) throw new Error(`${key} ${r.status}`);
-      return [key, parseCSV(await r.text()).map(mappers[key])];
-    }));
-    results.forEach(([key, incoming]) => {
-      const byId = new Map(state[key].map(x => [x.id, x]));
-      incoming.forEach(x => byId.set(x.id, x)); // cloud wins
-      state[key] = Array.from(byId.values()).sort((a, b) =>
-        (b.timestamp || b.startTime || 0) - (a.timestamp || a.startTime || 0));
-    });
-    state.lastSync = now();
-    save();
-    setSyncStatus(syncedAgoText());
-    render();
-  } catch (e) {
-    console.warn('Cloud sync failed:', e);
-    setSyncStatus(`offline · ${e.message}`, 'offline');
-  }
-}
+// fetchCloud is now a thin alias around pullFromWalrus (kept for the Sync
+// button's onclick). All real work happens in pullFromWalrus above.
+async function fetchCloud() { return pullFromWalrus(); }
 
 function render() {
   renderHeader();
@@ -1390,9 +1535,18 @@ setInterval(() => {
   }
 }, 30000);
 
-render();
-// Auto-sync on load (no-op if URLs aren't configured yet)
-fetchCloud();
+// Boot: PIN gate first, then render + start sync loop.
+(async () => {
+  const ok = await ensurePinGate();
+  if (!ok) return;
+  if (!walrusBase()) {
+    setSyncStatus('cloud not configured — long-press Sync to set up');
+    render();
+    return;
+  }
+  render();
+  startSyncLoop();
+})();
 </script>
 </body>
 </html>
