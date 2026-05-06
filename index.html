@@ -1,4 +1,4 @@
-<!-- Version: 1.6 -->
+<!-- Version: 1.7 -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -714,7 +714,7 @@
   <button class="tab" data-tab="history" onclick="showTab('history')"><span class="ic">📋</span>Log</button>
 </nav>
 
-<footer>Mother & Baby Tracker · v1.6 (Walrus integrated, two-way sync)</footer>
+<footer>Mother & Baby Tracker · v1.7 (Walrus integrated, two-way sync)</footer>
 
 <script>
 /* ---------- Cloud sync config (v1.5 — Walrus backend) ----------
@@ -912,35 +912,6 @@ function startSyncLoop() {
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') pullFromWalrus();
 });
-
-/* ---------- PIN gate ---------- */
-async function sha256(text) {
-  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
-  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
-}
-async function ensurePinGate() {
-  const stored = localStorage.getItem('pin_hash');
-  if (!stored) {
-    let pin = null;
-    while (!pin || !/^\d{4,6}$/.test(pin)) pin = prompt('Set a 4–6 digit PIN to lock this dashboard:');
-    localStorage.setItem('pin_hash', await sha256(pin));
-    return true;
-  }
-  for (let tries = 0; tries < 3; tries++) {
-    const pin = prompt('PIN:');
-    if (pin === null) return false;
-    if ((await sha256(pin)) === stored) return true;
-  }
-  alert('Three wrong attempts. Clearing local data — you will need to reconfigure.');
-  localStorage.clear();
-  location.reload();
-  return false;
-}
-function resetPin() {
-  if (!confirm('Forget PIN and start over? Local data stays.')) return;
-  localStorage.removeItem('pin_hash');
-  location.reload();
-}
 
 /* ---------- Tabs ---------- */
 function showTab(tab) {
@@ -1535,10 +1506,8 @@ setInterval(() => {
   }
 }, 30000);
 
-// Boot: PIN gate first, then render + start sync loop.
+// Boot: render + start sync loop.
 (async () => {
-  const ok = await ensurePinGate();
-  if (!ok) return;
   if (!walrusBase()) {
     setSyncStatus('cloud not configured — long-press Sync to set up');
     render();
